@@ -2,6 +2,7 @@ from typing import Optional
 
 import enum
 
+
 class Response:
     def __init__(
         self,
@@ -61,6 +62,7 @@ class SearchResult:
 
     def __repr__(self):
         return f"SearchResult(\n\timage_url = {self.image_url},\n\twebsite = {self.website},\n\tdate = {self.date},\n\tindex = {self.index},\n\ttitle = {self.title},\n\tdescription = {self.description}\n)"
+
 
 class Theme(enum.Enum):
     DARK = "dark"

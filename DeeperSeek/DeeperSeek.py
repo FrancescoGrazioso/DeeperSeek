@@ -13,8 +13,15 @@ import zendriver
 
 from .internal.objects import Response, SearchResult, Theme
 from .internal.selectors import DeepSeekSelectors
-from .internal.exceptions import (MissingCredentials, InvalidCredentials, ServerDown, MissingInitialization, CouldNotFindElement,
-                                  InvalidChatID)
+from .internal.exceptions import (
+    MissingCredentials,
+    InvalidCredentials,
+    ServerDown,
+    MissingInitialization,
+    CouldNotFindElement,
+    InvalidChatID,
+)
+
 
 class DeepSeek:
     def __init__(
@@ -26,7 +33,7 @@ class DeepSeek:
         headless: bool = True,
         verbose: bool = False,
         chrome_args: list = [],
-        attempt_cf_bypass: bool = True
+        attempt_cf_bypass: bool = True,
     ) -> None:
         """Initializes the DeepSeek object.
 
@@ -55,7 +62,9 @@ class DeepSeek:
             Either the token or the email and password must be provided.
         """
         if not token and not (email and password):
-            raise MissingCredentials("Either the token alone or the email and password both must be provided")
+            raise MissingCredentials(
+                "Either the token alone or the email and password both must be provided"
+            )
 
         self._email = email
         self._password = password
@@ -92,7 +101,9 @@ class DeepSeek:
 
         if self._verbose:
             handler = StreamHandler()
-            handler.setFormatter(Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%H:%M:%S"))
+            handler.setFormatter(
+                Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%H:%M:%S")
+            )
             self.logger.addHandler(handler)
 
         # Start the virtual display if the system is Linux and the DISPLAY environment variable is not set
@@ -116,31 +127,33 @@ class DeepSeek:
 
         # Start the browser
         self.browser = await zendriver.start(
-            chrome_args = self._chrome_args,
-            headless = self._headless
+            chrome_args=self._chrome_args, headless=self._headless
         )
 
         self.logger.debug("Navigating to the chat page...")
-        await self.browser.get("https://chat.deepseek.com/" if not self._chat_id \
-            else f"https://chat.deepseek.com/a/chat/s/{self._chat_id}")
+        await self.browser.get(
+            "https://chat.deepseek.com/"
+            if not self._chat_id
+            else f"https://chat.deepseek.com/a/chat/s/{self._chat_id}"
+        )
 
         if self._attempt_cf_bypass:
             try:
                 self.logger.debug("Verifying the Cloudflare protection...")
                 await self.browser.main_tab.verify_cf()
-            except: # It times out if there was no need to verify
+            except:  # It times out if there was no need to verify
                 pass
-        
+
         self._initialized = True
         self._is_active = True
         loop = get_event_loop()
         loop.create_task(self._keep_alive())
-        
+
         if self._token:
             await self._login()
         else:
             await self._login_classic()
-    
+
     async def _keep_alive(self) -> None:
         """Keeps the browser alive by refreshing the page periodically."""
         try:
@@ -170,40 +183,46 @@ class DeepSeek:
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
 
         self.logger.debug("Logging in using the token...")
         await self.browser.main_tab.evaluate(
             f"localStorage.setItem('userToken', JSON.stringify({{value: '{self._token}', __version: '0'}}))",
-            await_promise = True,
-            return_by_value = True
+            await_promise=True,
+            return_by_value=True,
         )
         await self.browser.main_tab.reload()
-        
+
         # Reloading with an invalid token still gives access to the website somehow, but only for a split second
         # So I added a delay to make sure the token is actually invalid
         await sleep(2)
-        
+
         # Check if the token login was successful
         try:
-            await self.browser.main_tab.wait_for(self.selectors.interactions.textbox, timeout = 5)
+            await self.browser.main_tab.wait_for(
+                self.selectors.interactions.textbox, timeout=5
+            )
         except:
             self.logger.debug("Token failed, logging in using email and password...")
 
             if self._email and self._password:
-                return await self._login_classic(token_failed = True)
+                return await self._login_classic(token_failed=True)
             else:
-                raise InvalidCredentials("The token is invalid and no email or password was provided")
-    
+                raise InvalidCredentials(
+                    "The token is invalid and no email or password was provided"
+                )
+
         self.logger.debug("Token login successful!")
-        
+
     async def _login_classic(self, token_failed: bool = False) -> None:
         """Logs in to DeepSeek using email and password.
 
         Args
         ---------
             token_failed (bool): Indicates whether the token login attempt failed.
-        
+
         Raises:
         ---------
             MissingInitialization: If the initialize method is not run before using this method.
@@ -211,61 +230,82 @@ class DeepSeek:
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
 
         self.logger.debug("Entering the email and password...")
-        email_input = await self.browser.main_tab.select(self.selectors.login.email_input)
+        email_input = await self.browser.main_tab.select(
+            self.selectors.login.email_input
+        )
         await email_input.send_keys(self._email)
 
-        password_input = await self.browser.main_tab.select(self.selectors.login.password_input)
+        password_input = await self.browser.main_tab.select(
+            self.selectors.login.password_input
+        )
         await password_input.send_keys(self._password)
 
         self.logger.debug("Checking the confirm checkbox and logging in...")
-        confirm_checkbox = await self.browser.main_tab.select(self.selectors.login.confirm_checkbox)
+        confirm_checkbox = await self.browser.main_tab.select(
+            self.selectors.login.confirm_checkbox
+        )
         await confirm_checkbox.click()
 
-        login_button = await self.browser.main_tab.select(self.selectors.login.login_button)
+        login_button = await self.browser.main_tab.select(
+            self.selectors.login.login_button
+        )
         await login_button.click()
 
         try:
-            await self.browser.main_tab.wait_for(self.selectors.interactions.textbox, timeout = 5)
+            await self.browser.main_tab.wait_for(
+                self.selectors.interactions.textbox, timeout=5
+            )
         except:
-            raise InvalidCredentials("The email or password is incorrect" \
-                if not token_failed else "Both token and email/password are incorrect")
+            raise InvalidCredentials(
+                "The email or password is incorrect"
+                if not token_failed
+                else "Both token and email/password are incorrect"
+            )
 
-        self.logger.debug(f"Logged in successfully using email and password! {'(Token method failed)' if token_failed else ''}")
-    
+        self.logger.debug(
+            f"Logged in successfully using email and password! {'(Token method failed)' if token_failed else ''}"
+        )
+
     async def _dev_debug(self) -> None:
         """A method for debugging purposes.
-        
+
         Raises
         ---------
             MissingInitialization: If the initialize method is not run before using this method.
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
-    
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
+
         while True:
             class_id = input("Enter the class id [e to exit]: ")
             if class_id == "e":
                 break
 
             try:
-                element = await self.browser.main_tab.select(f'div[class="{class_id}"]', timeout = 3)
+                element = await self.browser.main_tab.select(
+                    f'div[class="{class_id}"]', timeout=3
+                )
             except:
                 print("Invalid class id")
                 continue
-            
+
             print("breakpoint below")
             breakpoint()
-        
+
     async def _find_child_by_text(
         self,
         parent: zendriver.Element,
         text: str,
         in_depth: bool = False,
-        depth_limit: int = 10
+        depth_limit: int = 10,
     ) -> Optional[zendriver.Element]:
         """Finds a child element by it's text.
 
@@ -286,43 +326,49 @@ class DeepSeek:
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
 
-        if in_depth: # not the best way to do this, but it works
+        if in_depth:  # not the best way to do this, but it works
             for child in parent.children:
                 if child.text_all.lower() == text.lower():
                     return child
-                
+
                 if depth_limit:
-                    found = await self._find_child_by_text(child, text, in_depth, depth_limit - 1)
+                    found = await self._find_child_by_text(
+                        child, text, in_depth, depth_limit - 1
+                    )
                     if found:
                         return found
         else:
             for child in parent.children:
                 if child.text_all.lower() == text.lower():
                     return child
-        
+
         return None
 
     async def retrieve_token(self) -> Optional[str]:
         """Retrieves the token from the browser's local storage.
-        
+
         Returns
         ---------
             Optional[str]: The token if found, otherwise None.
-        
+
         Raises
         ---------
             MissingInitialization: If the initialize method is not run before using this method.
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
-        
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
+
         return await self.browser.main_tab.evaluate(
             "JSON.parse(localStorage.getItem('userToken')).value",
-            await_promise = True,
-            return_by_value = True
+            await_promise=True,
+            return_by_value=True,
         )
 
     async def send_message(
@@ -332,7 +378,7 @@ class DeepSeek:
         deepthink: bool = False,
         search: bool = False,
         timeout: int = 60,
-        slow_mode_delay: float = 0.25
+        slow_mode_delay: float = 0.25,
     ) -> Optional[Response]:
         """Sends a message to the DeepSeek chat.
 
@@ -359,13 +405,17 @@ class DeepSeek:
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
 
         timeout += 20 if deepthink else 0
         timeout += 60 if search else 0
 
         self.logger.debug(f"Finding the textbox and sending the message: {message}")
-        textbox = await self.browser.main_tab.select(self.selectors.interactions.textbox)
+        textbox = await self.browser.main_tab.select(
+            self.selectors.interactions.textbox
+        )
         if slow_mode:
             for char in message:
                 await textbox.send_keys(char)
@@ -374,20 +424,24 @@ class DeepSeek:
             await textbox.send_keys(message)
 
         # Find the parent div of both deepthink and search options
-        send_options_parent = await self.browser.main_tab.select(self.selectors.interactions.send_options_parent)
-        
+        send_options_parent = await self.browser.main_tab.select(
+            self.selectors.interactions.send_options_parent
+        )
+
         if deepthink != self._deepthink_enabled:
-            await send_options_parent.children[0].click() # DeepThink (R1)
+            await send_options_parent.children[0].click()  # DeepThink (R1)
             self._deepthink_enabled = deepthink
-        
+
         if search != self._search_enabled:
-            await send_options_parent.children[1].click() # Search
+            await send_options_parent.children[1].click()  # Search
             self._search_enabled = search
 
-        send_button = await self.browser.main_tab.select(self.selectors.interactions.send_button)
+        send_button = await self.browser.main_tab.select(
+            self.selectors.interactions.send_button
+        )
         await send_button.click()
 
-        return await self._get_response(timeout = timeout)
+        return await self._get_response(timeout=timeout)
 
     async def regenerate_response(self, timeout: int = 60) -> Optional[Response]:
         """Regenerates the response from DeepSeek.
@@ -399,7 +453,7 @@ class DeepSeek:
         Returns
         ---------
             Optional[Response]: The regenerated response from DeepSeek, or None if no response is received within the timeout
-        
+
         Raises
         ---------
             MissingInitialization: If the initialize method is not run before using this method.
@@ -407,14 +461,18 @@ class DeepSeek:
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
 
         # Find the last response so I can access it's buttons
-        toolbar = await self.browser.main_tab.select_all(self.selectors.interactions.response_toolbar)
+        toolbar = await self.browser.main_tab.select_all(
+            self.selectors.interactions.response_toolbar
+        )
         await toolbar[-1].children[1].click()
 
-        return await self._get_response(timeout = timeout, regen = True)
-    
+        return await self._get_response(timeout=timeout, regen=True)
+
     def _filter_search_results(
         self,
         search_results_children: list,
@@ -428,31 +486,33 @@ class DeepSeek:
         Returns
         ---------
             list: A list of SearchResult objects.
-        
+
         Raises
         ---------
             MissingInitialization: If the initialize method is not run before using this method.
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
 
         search_results = []
         for search_result in search_results_children:
             search_results.append(
                 SearchResult(
-                    image_url = BeautifulSoup(
+                    image_url=BeautifulSoup(
                         str(search_result.children[0].children[0].children),
-                        'html.parser'
-                    ).find('img')['src'],
-                    website = search_result.children[0].children[1].text_all,
-                    date = search_result.children[0].children[2].text_all,
-                    index = int(search_result.children[0].children[3].text_all),
-                    title = search_result.children[1].text_all,
-                    description = search_result.children[2].text_all
+                        "html.parser",
+                    ).find("img")["src"],
+                    website=search_result.children[0].children[1].text_all,
+                    date=search_result.children[0].children[2].text_all,
+                    index=int(search_result.children[0].children[3].text_all),
+                    title=search_result.children[1].text_all,
+                    description=search_result.children[2].text_all,
                 )
             )
-        
+
         return search_results
 
     async def _get_response(
@@ -470,7 +530,7 @@ class DeepSeek:
         Returns
         ---------
             Optional[Response]: The generated response from DeepSeek, or None if no response is received within the timeout.
-        
+
         Raises
         ---------
             MissingInitialization: If the initialize method is not run before using this method.
@@ -478,70 +538,93 @@ class DeepSeek:
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
 
         end_time = time() + timeout
 
         # Wait till the response starts generating
         # If we don't wait for the response to start re/generating, we might get the previous response
-        self.logger.debug("Waiting for the response to start generating..." if not regen \
-            else "Waiting for the response to start regenerating...")
+        self.logger.debug(
+            "Waiting for the response to start generating..."
+            if not regen
+            else "Waiting for the response to start regenerating..."
+        )
         while time() < end_time:
             try:
-                _ = await self.browser.main_tab.select(self.selectors.backend.response_generating if not regen \
-                    else self.selectors.backend.regen_loading_icon)
+                _ = await self.browser.main_tab.select(
+                    self.selectors.backend.response_generating
+                    if not regen
+                    else self.selectors.backend.regen_loading_icon
+                )
             except:
                 continue
             else:
                 break
-        
+
         if time() >= end_time:
             return None
 
         # Once the response starts generating, wait till it's generated
         response_generated = None
-        self.logger.debug("Waiting for the response to finish generating..." if not regen \
-            else "Finding the last response...")
+        self.logger.debug(
+            "Waiting for the response to finish generating..."
+            if not regen
+            else "Finding the last response..."
+        )
         while time() < end_time:
             try:
-                response_generated: zendriver.Element = await self.browser.main_tab.select_all(
-                    self.selectors.backend.response_generated)
+                response_generated: zendriver.Element = (
+                    await self.browser.main_tab.select_all(
+                        self.selectors.backend.response_generated
+                    )
+                )
             except:
                 continue
 
             if response_generated:
                 break
-        
+
         if not response_generated:
             return None
-        
+
         if regen:
             # Wait till toolbar appears
             self.logger.debug("Waiting for the response toolbar to appear...")
             while time() < end_time:
                 # I need to keep refreshing the response_generated list because the elements change
                 try:
-                    response_generated: zendriver.Element = await self.browser.main_tab.select_all(
-                        self.selectors.backend.response_generated)
+                    response_generated: zendriver.Element = (
+                        await self.browser.main_tab.select_all(
+                            self.selectors.backend.response_generated
+                        )
+                    )
                 except Exception as e:
                     continue
 
                 # Check if the toolbar is present
-                soup = BeautifulSoup(repr(response_generated[-1]), 'html.parser')
-                toolbar = soup.find("div", class_ = self.selectors.backend.response_toolbar_b64)
+                soup = BeautifulSoup(repr(response_generated[-1]), "html.parser")
+                toolbar = soup.find(
+                    "div", class_=self.selectors.backend.response_toolbar_b64
+                )
                 if not toolbar:
                     continue
 
-                response_generated = await self.browser.main_tab.select_all(self.selectors.backend.response_generated)
+                response_generated = await self.browser.main_tab.select_all(
+                    self.selectors.backend.response_generated
+                )
                 break
-            
+
             if time() >= end_time:
                 return None
 
         self.logger.debug("Extracting the response text...")
-        soup = BeautifulSoup(repr(response_generated[-1]), 'html.parser')
-        markdown_blocks = soup.find_all("div", class_ = "ds-markdown ds-markdown--block")
-        response_text = "\n\n".join(get_text(str(block)).strip() for block in markdown_blocks)
+        soup = BeautifulSoup(repr(response_generated[-1]), "html.parser")
+        markdown_blocks = soup.find_all("div", class_="ds-markdown ds-markdown--block")
+        response_text = "\n\n".join(
+            get_text(str(block)).strip() for block in markdown_blocks
+        )
 
         if response_text.lower() == "the server is busy. please try again later.":
             raise ServerDown("The server is busy. Please try again later.")
@@ -557,74 +640,89 @@ class DeepSeek:
                 # So this is a search result option, we need to click it and find the search results div
                 await child.click()
 
-                search_results = await self.browser.main_tab.select_all(self.selectors.interactions.search_results)
+                search_results = await self.browser.main_tab.select_all(
+                    self.selectors.interactions.search_results
+                )
                 # First child is "Search Results". Second child is the actual search results
                 search_results_children = search_results[-1].children[1].children
 
                 search_results = self._filter_search_results(search_results_children)
-            
-            if match(r"thought for \d+(\.\d+)? seconds", child.text.lower()) and self._deepthink_enabled:
+
+            if (
+                match(r"thought for \d+(\.\d+)? seconds", child.text.lower())
+                and self._deepthink_enabled
+            ):
                 self.logger.debug("Extracting the deepthink duration and content...")
                 # This is the deepthink option, we can find the duration through splitting the text
                 deepthink_duration = int(child.text.split()[2])
-                
+
                 # DeepThink content is shown by default, no need to click anything
-                deepthink_content = await self.browser.main_tab.select_all(self.selectors.interactions.deepthink_content)
-                soup = BeautifulSoup(repr(deepthink_content[-1]), 'html.parser')
-                deepthink_content = "\n".join(get_text(str(p)).strip() for p in soup.find_all('p'))
+                deepthink_content = await self.browser.main_tab.select_all(
+                    self.selectors.interactions.deepthink_content
+                )
+                soup = BeautifulSoup(repr(deepthink_content[-1]), "html.parser")
+                deepthink_content = "\n".join(
+                    get_text(str(p)).strip() for p in soup.find_all("p")
+                )
 
         response = Response(
-            text = response_text,
-            chat_id = self._chat_id,
-            deepthink_duration = deepthink_duration,
-            deepthink_content = deepthink_content,
-            search_results = search_results
+            text=response_text,
+            chat_id=self._chat_id,
+            deepthink_duration=deepthink_duration,
+            deepthink_content=deepthink_content,
+            search_results=search_results,
         )
-        
+
         self.logger.debug("Response generated!")
         return response
-    
+
     async def reset_chat(self) -> None:
         """Resets the chat by clicking the reset button.
-        
+
         Raises
         ---------
             MissingInitialization: If the initialize method is not run before using this method.
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
 
-        reset_chat_button = await self.browser.main_tab.select(self.selectors.interactions.reset_chat_button)
+        reset_chat_button = await self.browser.main_tab.select(
+            self.selectors.interactions.reset_chat_button
+        )
         await reset_chat_button.click()
         self.chat_id = ""
         self.logger.debug("Chat reset!")
-    
+
     async def logout(self) -> None:
         """Logs out of the DeepSeek account.
-        
+
         Raises
         ---------
             MissingInitialization: If the initialize method is not run before using this method.
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
 
         self.logger.debug("Logging out...")
         await self.browser.main_tab.evaluate(
             "localStorage.removeItem('userToken')",
-            await_promise = True,
-            return_by_value = True
+            await_promise=True,
+            return_by_value=True,
         )
         await self.browser.main_tab.reload()
         self.logger.debug("Logged out successfully!")
-    
+
     async def switch_account(
         self,
         token: Optional[str] = None,
         email: Optional[str] = None,
-        password: Optional[str] = None
+        password: Optional[str] = None,
     ) -> None:
         """Switches the account by logging out and logging back in with a new token.
 
@@ -633,7 +731,7 @@ class DeepSeek:
             token (Optional[str]): The new token to use.
             email (Optional[str]): The new email to use.
             password (Optional[str]): The new password to use.
-        
+
         Raises
         ---------
             MissingInitialization: If the initialize method is not run before using this method
@@ -642,11 +740,15 @@ class DeepSeek:
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
 
         # Check if the token or email and password are provided
         if not token and not (email and password):
-            raise MissingCredentials("Either the token alone or the email and password both must be provided")
+            raise MissingCredentials(
+                "Either the token alone or the email and password both must be provided"
+            )
 
         self.logger.debug("Switching the account...")
 
@@ -662,10 +764,10 @@ class DeepSeek:
             await self._login()
         else:
             await self._login_classic()
-        
+
     async def delete_chats(self) -> None:
         """Deletes all the chats in the chat.
-        
+
         Raises
         ---------
             MissingInitialization: If the initialize method is not run before using this method.
@@ -673,21 +775,25 @@ class DeepSeek:
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
 
         self.logger.debug("Clicking the profile button...")
-        profile_button = await self.browser.main_tab.select(self.selectors.interactions.profile_button)
+        profile_button = await self.browser.main_tab.select(
+            self.selectors.interactions.profile_button
+        )
         await profile_button.click()
-        
+
         self.logger.debug("Clicking the profile options dropdown...")
-        profile_options_dropdown = await self.browser.main_tab.select(self.selectors.interactions.profile_options_dropdown)
+        profile_options_dropdown = await self.browser.main_tab.select(
+            self.selectors.interactions.profile_options_dropdown
+        )
         await profile_options_dropdown.click()
 
         self.logger.debug("Finding and clicking the delete chats button...")
         delete_chats_button = await self._find_child_by_text(
-            parent = profile_options_dropdown,
-            text = "Delete all chats",
-            in_depth = True
+            parent=profile_options_dropdown, text="Delete all chats", in_depth=True
         )
         if not delete_chats_button:
             raise CouldNotFindElement("Could not find the delete chats button")
@@ -695,18 +801,20 @@ class DeepSeek:
         await delete_chats_button.click()
 
         self.logger.debug("Clicking the confirm deletion button...")
-        confirm_deletion_button = await self.browser.main_tab.select(self.selectors.interactions.confirm_deletion_button)
+        confirm_deletion_button = await self.browser.main_tab.select(
+            self.selectors.interactions.confirm_deletion_button
+        )
         await confirm_deletion_button.click()
 
         self.logger.debug("chats deleted!")
-    
+
     async def switch_chat(self, chat_id: str) -> None:
         """Switches the chat by navigating to a new chat id.
 
         Args
         ---------
             chat_id (str): The new chat id to navigate to.
-        
+
         Raises
         ---------
             MissingInitialization: If the initialize method is not run before using this method.
@@ -715,7 +823,9 @@ class DeepSeek:
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
 
         self.logger.debug(f"Switching the chat to: {chat_id}")
         await self.browser.main_tab.get(f"https://chat.deepseek.com/a/chat/s/{chat_id}")
@@ -723,47 +833,50 @@ class DeepSeek:
         # Wait till text box appears
         self.logger.debug("Waiting for the textbox to appear...")
         try:
-            await self.browser.main_tab.wait_for(self.selectors.interactions.textbox, timeout = 5)
+            await self.browser.main_tab.wait_for(
+                self.selectors.interactions.textbox, timeout=5
+            )
         except:
             raise CouldNotFindElement("Could not find the textbox")
 
         chat_id_in_url = await self.browser.main_tab.evaluate(
             f"window.location.href.includes('{chat_id}')",
-            await_promise = True,
-            return_by_value = True
+            await_promise=True,
+            return_by_value=True,
         )
 
         if not chat_id_in_url:
             raise InvalidChatID("The chat id is invalid")
-        
+
         self._chat_id = chat_id
         self.logger.debug("Chat switched!")
-    
+
     async def switch_theme(self, theme: Theme):
         """Switches the theme of the chat.
 
         Args
         ---------
             theme (Theme): The theme to switch to.
-        
+
         Raises
         ---------
             MissingInitialization: If the initialize method is not run before using this method.
         """
 
         if not self._initialized:
-            raise MissingInitialization("You must run the initialize method before using this method.")
+            raise MissingInitialization(
+                "You must run the initialize method before using this method."
+            )
 
         self.logger.debug(f"Switching the theme to: {theme.value}")
         await self.browser.main_tab.evaluate(
             f"localStorage.setItem('__appKit_@deepseek/chat_themePreference', JSON.stringify({{value: '{theme.value}', __version: '0'}}))",
-            await_promise = True,
-            return_by_value = True
+            await_promise=True,
+            return_by_value=True,
         )
 
         await self.browser.main_tab.reload()
         self.logger.debug("Theme switched!")
-
 
         # does not work, couldnt figure out how to select an option in a dropdown
         # self.logger.debug(f"Switching the theme to: {theme.name}")
@@ -792,7 +905,7 @@ class DeepSeek:
         # # if try_another:
         # #     await theme_select_parent[-1].children[1].mouse_click()
         # await sleep(5)
-        
+
         # for child in theme_select_parent[-1].children[0].children:
         #     if child.text_all.lower() == theme.name.lower(): # figure this out TODO
         #         await child.mouse_click()

@@ -1,11 +1,15 @@
 from dataclasses import dataclass, field
 
+
 @dataclass
 class LoginSelectors:
     email_input: str = 'input[type="text"]'
     password_input: str = 'input[type="password"]'
-    confirm_checkbox: str = 'div[class="ds-checkbox ds-checkbox--none ds-checkbox--bordered"]'
+    confirm_checkbox: str = (
+        'div[class="ds-checkbox ds-checkbox--none ds-checkbox--bordered"]'
+    )
     login_button: str = 'div[role="button"]'
+
 
 @dataclass
 class InteractionSelectors:
@@ -18,15 +22,23 @@ class InteractionSelectors:
     deepthink_content: str = 'div[class="e1675d8b"]'
     profile_button: str = 'div[class="ede5bc47"]'
     profile_options_dropdown: str = 'div[class="ds-floating-position-wrapper ds-theme"]'
-    confirm_deletion_button: str = 'div[class="ds-button ds-button--error ds-button--filled ds-button--rect ds-button--m"]'
-    theme_select_parent: str = 'div[class="ds-native-select ds-native-select--filled ds-native-select--none ds-native-select--m"]'
+    confirm_deletion_button: str = (
+        'div[class="ds-button ds-button--error ds-button--filled ds-button--rect ds-button--m"]'
+    )
+    theme_select_parent: str = (
+        'div[class="ds-native-select ds-native-select--filled ds-native-select--none ds-native-select--m"]'
+    )
+
 
 @dataclass
 class BackendSelectors:
     response_generating: str = 'div[class="f9bf7997 d7dc56a8"]'
     response_generated: str = 'div[class="f9bf7997 d7dc56a8 c05b5566"]'
     regen_loading_icon: str = 'div[class="ds-loading b4e4476b"]'
-    response_toolbar_b64: str = 'ds-flex abe97156'  # This is different, because it's used in BS4
+    response_toolbar_b64: str = (
+        "ds-flex abe97156"  # This is different, because it's used in BS4
+    )
+
 
 @dataclass
 class URLSelectors:
