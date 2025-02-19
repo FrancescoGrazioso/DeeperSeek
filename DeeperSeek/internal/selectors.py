@@ -32,6 +32,7 @@ class BackendSelectors:
 class URLSelectors:
     chat_url: str = "https://chat.deepseek.com/"
 
+
 @dataclass
 class DeepSeekSelectors:
     login: LoginSelectors = field(default_factory=LoginSelectors)

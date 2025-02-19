@@ -9,7 +9,7 @@ class Response:
         chat_id: Optional[str] = None,
         deepthink_duration: Optional[int] = None,
         deepthink_content: Optional[str] = None,
-        search_results: Optional[list] = None
+        search_results: Optional[list] = None,
     ):
         """Response object to store the response from the DeepSeek API.
 
@@ -26,9 +26,10 @@ class Response:
         self.deepthink_duration = deepthink_duration
         self.deepthink_content = deepthink_content
         self.search_results = search_results
-    
+
     def __repr__(self):
         return self.text
+
 
 class SearchResult:
     def __init__(
@@ -38,7 +39,7 @@ class SearchResult:
         date: str,
         index: int,
         title: str,
-        description: str
+        description: str,
     ):
         """Search result object to store the search result data.
 
@@ -57,7 +58,7 @@ class SearchResult:
         self.index = index
         self.title = title
         self.description = description
-    
+
     def __repr__(self):
         return f"SearchResult(\n\timage_url = {self.image_url},\n\twebsite = {self.website},\n\tdate = {self.date},\n\tindex = {self.index},\n\ttitle = {self.title},\n\tdescription = {self.description}\n)"
 
